@@ -9,7 +9,7 @@ package bbs
 // BBS defines BBS+ signature scheme (https://eprint.iacr.org/2016/663.pdf, section 4.3).
 type BBS interface {
 
-	// Verify will verify an aggregated signature of one or more messages against a public key
+	// Verify will verify an aggregated signature of one or more messages against a public key.
 	// returns:
 	// 		error in case of errors or nil if signature verification was successful
 	Verify(messages [][]byte, signature, pubKey []byte) error
@@ -20,4 +20,9 @@ type BBS interface {
 	// 		signature in []byte
 	//		error in case of errors
 	Sign(messages [][]byte, privKey []byte) ([]byte, error)
+
+	// VerifyProof will verify a BBS+ proof (generated e.g. by Sign()) with a BLS12-381 public key.
+	// returns:
+	// 		error in case of errors or nil if signature proof verification was successful
+	VerifyProof(messages [][]byte, proof, nonce, pubKey []byte) error
 }
