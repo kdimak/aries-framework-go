@@ -149,3 +149,27 @@ func TestBBSG2Pub_VerifyProof(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestBBSG2Pub_DeriveProof(t *testing.T) {
+	pubKey, privKey, err := generateKeyPairRandom()
+	require.NoError(t, err)
+
+	privKeyBytes, err := privKey.Marshal()
+	require.NoError(t, err)
+
+	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
+	bls := bbs12381g2pub.New()
+
+	signatureBytes, err := bls.Sign(messagesBytes, privKeyBytes)
+	require.NoError(t, err)
+
+	pubKeyBytes, err := pubKey.Marshal()
+	require.NoError(t, err)
+	require.NoError(t, bls.Verify(messagesBytes, signatureBytes, pubKeyBytes))
+
+	nonce := []byte("nonce")
+	proofBytes, err := bls.DeriveProof(messagesBytes, signatureBytes, nonce, pubKeyBytes, []int{0})
+	require.NoError(t, err)
+
+	require.NoError(t, bls.VerifyProof(messagesBytes[0:1], proofBytes, nonce, pubKeyBytes))
+}

@@ -88,21 +88,6 @@ func (bbs *BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) err
 	return errors.New("BLS12-381: invalid signature")
 }
 
-func messagesToFr(messages [][]byte) ([]*SignatureMessage, error) {
-	var err error
-
-	messagesFr := make([]*SignatureMessage, len(messages))
-
-	for i := range messages {
-		messagesFr[i], err = ParseSignatureMessage(messages[i])
-		if err != nil {
-			return nil, fmt.Errorf("parse signature message %d: %w", i+1, err)
-		}
-	}
-
-	return messagesFr, nil
-}
-
 // Sign signs the one or more messages using private key in compressed form.
 func (bbs *BBSG2Pub) Sign(messages [][]byte, privKeyBytes []byte) ([]byte, error) {
 	privKey, err := UnmarshalPrivateKey(privKeyBytes)
@@ -172,7 +157,10 @@ func (bbs *BBSG2Pub) VerifyProof(messages [][]byte, proof, nonce, pubKeyBytes []
 	proofChallenge := frFromOKM(challengeBytes)
 
 	return signatureProof.verify(proofChallenge, publicKey, h0, h, revealedMessages, messagesFr)
-	//return errors.New("not implemented")
+}
+
+func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, signature, nonce, pubKey []byte, revealedIndexes []int) ([]byte, error) {
+	return nil, errors.New("not implemented")
 }
 
 func createRandSignatureFr() (*bls12381.Fr, error) {
