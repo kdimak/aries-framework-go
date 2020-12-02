@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"sort"
 
 	bls12381 "github.com/kilic/bls12-381"
 	"golang.org/x/crypto/blake2b"
@@ -103,18 +104,7 @@ func (bbs *BBSG2Pub) Sign(messages [][]byte, privKeyBytes []byte) ([]byte, error
 }
 
 func (bbs *BBSG2Pub) VerifyProof(messages [][]byte, proof, nonce, pubKeyBytes []byte) error {
-	messagesCount := int(uint16FromBytes(proof[0:2]))
-
-	fmt.Printf("messages count: %d\n", messagesCount)
-
-	bitvectorLen := (messagesCount / 8) + 1
-	offset := 2 + bitvectorLen
-
-	fmt.Printf("bitvectorLen = %d, offset = %d\n",
-		bitvectorLen, offset)
-
-	revealed := bitvectorToIndexes(proof[2:offset])
-	fmt.Printf("revealed: %v\n", revealed)
+	messagesCount, offset, revealed := bitvectorToRevealed(proof)
 
 	signatureProof, err := ParseSignatureProof(proof[offset:])
 	if err != nil {
@@ -160,6 +150,13 @@ func (bbs *BBSG2Pub) VerifyProof(messages [][]byte, proof, nonce, pubKeyBytes []
 }
 
 func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, signature, nonce, pubKey []byte, revealedIndexes []int) ([]byte, error) {
+	sort.Ints(revealedIndexes)
+
+	messagesCount := len(messages)
+
+	bitvector := revealedToBitvector(messagesCount, revealedIndexes)
+	fmt.Printf("bitvector (%d): %v\n", len(bitvector), bitvector)
+
 	return nil, errors.New("not implemented")
 }
 

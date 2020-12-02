@@ -150,6 +150,33 @@ func TestBBSG2Pub_VerifyProof(t *testing.T) {
 	})
 }
 
+func TestBBSG2Pub_VerifyProof_SeveralDisclosedMessages(t *testing.T) {
+	pkBase64 := "l3gROxQgacx5P1XDiJ2VoB4CnpcHWW7r2Fcpkqc5/A3NRiQHhZwxDGrZBFkaPnoBA+nojovIe5lXIZbwtiR7wQZCiQmluJcUiCAh4QoE6Rvc0AG+CCHA5ipQGIBBlDXA"
+	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
+	require.NoError(t, err)
+
+	proofBase64 := "AAQFkEPLrC+TV8EH5KjSH4rqYbCILYLIJcedzXK8b51stsqfHLSGE3NnKjWkdIKGbiHmjoWE6mxDYoR/0NyLKCsbB0qCzrX+aEDR6ske8dIYtcdhaEwvb3BtIG40TPv4jLt+kFaTp4k2z0jyqNjK0yGpXjw4bfm5l3g8HO/hE919VsoWQcOVd05UfJFHksIMopfNAAAAdK3n/yUZ8FhB86lfls5ShWZFKm1i3oSQE2uwSo/e895m7O8Tm+joVKLF8zbHBUcAugAAAAIGcHxGrMjOR9FScpKWy2t17AwUa/PAKhj11VRHwg9GyygslBo+joKPK64RR95vyl0RpNCFZaKm90cJBLD+LjLKrmB/gKB4+1efb6awpq4ty1z4GGJRzoW/C7eavsCyLE01hJqFPUYiViOf7wy5hyR6AAAABG1z3FrzL7mBm831ZYvEW3LGHwPtCcO7Sln7qFTt79C/PTn8GHWwV8c63dZHnNJdd4eBN/aHDxloTpVIHDHRrvwHlPCe1aN/ep5TkgA5u+Xk8XgJaaFrU1R73wWBaBxnnmRUDsS3O3usW2LZEuoL1WiM3AcNqsoO17Ka4D9jViQy"
+	proofBytes, err := base64.StdEncoding.DecodeString(proofBase64)
+	require.NoError(t, err)
+
+	nonce := []byte("nonce")
+
+	messagesBytes := [][]byte{
+		[]byte("message1"),
+		[]byte("message2"),
+		[]byte("message3"),
+		[]byte("message4"),
+	}
+	revealedMessagesBytes := [][]byte{messagesBytes[0], messagesBytes[2]}
+
+	bls := bbs12381g2pub.New()
+
+	t.Run("valid signature", func(t *testing.T) {
+		err = bls.VerifyProof(revealedMessagesBytes, proofBytes, nonce, pkBytes)
+		require.NoError(t, err)
+	})
+}
+
 func TestBBSG2Pub_DeriveProof(t *testing.T) {
 	pubKey, privKey, err := generateKeyPairRandom()
 	require.NoError(t, err)
