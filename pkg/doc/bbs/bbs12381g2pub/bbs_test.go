@@ -151,11 +151,11 @@ func TestBBSG2Pub_VerifyProof(t *testing.T) {
 }
 
 func TestBBSG2Pub_VerifyProof_SeveralDisclosedMessages(t *testing.T) {
-	pkBase64 := "l3gROxQgacx5P1XDiJ2VoB4CnpcHWW7r2Fcpkqc5/A3NRiQHhZwxDGrZBFkaPnoBA+nojovIe5lXIZbwtiR7wQZCiQmluJcUiCAh4QoE6Rvc0AG+CCHA5ipQGIBBlDXA"
+	pkBase64 := "l0Wtf3gy5f140G5vCoCJw2420hwk6Xw65/DX3ycv1W7/eMky8DyExw+o1s2bmq3sEIJatkiN8f5D4k0766x0UvfbupFX+vVkeqnlOvT6o2cag2osQdMFbBQqAybOM4Gm"
 	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
 	require.NoError(t, err)
 
-	proofBase64 := "AAQFkEPLrC+TV8EH5KjSH4rqYbCILYLIJcedzXK8b51stsqfHLSGE3NnKjWkdIKGbiHmjoWE6mxDYoR/0NyLKCsbB0qCzrX+aEDR6ske8dIYtcdhaEwvb3BtIG40TPv4jLt+kFaTp4k2z0jyqNjK0yGpXjw4bfm5l3g8HO/hE919VsoWQcOVd05UfJFHksIMopfNAAAAdK3n/yUZ8FhB86lfls5ShWZFKm1i3oSQE2uwSo/e895m7O8Tm+joVKLF8zbHBUcAugAAAAIGcHxGrMjOR9FScpKWy2t17AwUa/PAKhj11VRHwg9GyygslBo+joKPK64RR95vyl0RpNCFZaKm90cJBLD+LjLKrmB/gKB4+1efb6awpq4ty1z4GGJRzoW/C7eavsCyLE01hJqFPUYiViOf7wy5hyR6AAAABG1z3FrzL7mBm831ZYvEW3LGHwPtCcO7Sln7qFTt79C/PTn8GHWwV8c63dZHnNJdd4eBN/aHDxloTpVIHDHRrvwHlPCe1aN/ep5TkgA5u+Xk8XgJaaFrU1R73wWBaBxnnmRUDsS3O3usW2LZEuoL1WiM3AcNqsoO17Ka4D9jViQy"
+	proofBase64 := "AAQFpAE2VALtmriOzSMk/oqid4uJhPQRUVUuyenL/L4w4ykdyh0jCX64EFqCdLP+n8VrkOKXhHPKPoCOdHBOMv96aM15NFg867/MToMeNN0IFzZkzhs37qk1vWWFKReMF+cRsCAmkHO6An1goNHdY/4XquSV3LwykezraWt8+8bLvVn6ciaXBVxVcYkbIXRsVjqbAAAAdIl/C/W5G1pDbLMrUrBAYdpvzGHG25gktAuUFZb/SkIyy0uhtWJk2v6A+D3zkoEBsgAAAAJY/jfJR9kpGbSY5pfz+qPkqyNOTJbs6OEpfBwYGsyC7hspvBGUOYyvuKlS8SvKAXW7hVawAhYJbvnRwzeiP6P9kbZKtLQZIkRQB+mxRSbMk/0JgE1jApHOlPtgbqI9yIouhK9xT2wVZl79qTAwifonAAAABDTDo5VtXR2gloy+au7ai0wcnnzjMJ6ztQHRI1ApV5VuOQ19TYL7SW+C90p3QSZFQ5gtl90PHaUuEAHIb+7ZgbJvh5sc1DjKfThwPx0Ao0w8+xTbLhNlxvo6VE1cfbiuME+miCAibLgHjksQ8ctl322qnblYJLXiS4lvx/jtGvA3"
 	proofBytes, err := base64.StdEncoding.DecodeString(proofBase64)
 	require.NoError(t, err)
 
@@ -183,6 +183,8 @@ func TestBBSG2Pub_DeriveProof(t *testing.T) {
 
 	privKeyBytes, err := privKey.Marshal()
 	require.NoError(t, err)
+	t.Logf("privKeyBytes=%v", privKeyBytes)
+	t.Logf("privKeyB64=%v", base64.RawStdEncoding.EncodeToString(privKeyBytes))
 
 	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
 	bls := bbs12381g2pub.New()
@@ -192,6 +194,9 @@ func TestBBSG2Pub_DeriveProof(t *testing.T) {
 
 	pubKeyBytes, err := pubKey.Marshal()
 	require.NoError(t, err)
+	t.Logf("pubKeyBytes=%v", pubKeyBytes)
+	t.Logf("pubKeyB64=%v", base64.RawStdEncoding.EncodeToString(pubKeyBytes))
+
 	require.NoError(t, bls.Verify(messagesBytes, signatureBytes, pubKeyBytes))
 
 	nonce := []byte("nonce")

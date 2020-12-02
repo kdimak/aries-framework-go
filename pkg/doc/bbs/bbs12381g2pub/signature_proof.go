@@ -89,10 +89,12 @@ func (sp *SignatureProof) verify(challenge *bls12381.Fr, publicKey *PublicKey,
 	basesDisclosed = append(basesDisclosed, g1.One())
 	exponents = append(exponents, bls12381.NewFr().RedOne())
 
+	messagesFrInd := 0
 	for i := range h {
 		if _, ok := revealedMessages[i]; ok {
 			basesDisclosed = append(basesDisclosed, h[i])
-			exponents = append(exponents, messagesFr[i].FR)
+			exponents = append(exponents, messagesFr[messagesFrInd].FR)
+			messagesFrInd++
 		} else {
 			basesVc2 = append(basesVc2, h[i])
 		}
