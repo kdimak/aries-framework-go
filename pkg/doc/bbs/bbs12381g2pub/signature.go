@@ -55,3 +55,21 @@ func (s *Signature) ToBytes() ([]byte, error) {
 
 	return bytes, nil
 }
+
+func (s *Signature) Verify(messages []*SignatureMessage, pubKey *PublicKeyWithGenerators) error {
+	p1 := s.A
+
+	g2 := bls12381.NewG2()
+
+	q1 := g2.One()
+	g2.MulScalar(q1, q1, frToRepr(s.E))
+	g2.Add(q1, q1, pubKey.w)
+	p2 := getB(s.S, messages, pubKey)
+
+	if compareTwoPairings(p1, q1, p2, g2.One()) {
+		return nil
+	}
+
+	return errors.New("BLS12-381: invalid signature")
+
+}

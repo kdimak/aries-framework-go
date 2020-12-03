@@ -62,7 +62,7 @@ func revealedToBitvector(messagesCount int, revealed []int) []byte {
 		idx := r / 8
 		bit := r % 8
 
-		bitvector[idx] = 1 << bit
+		bitvector[idx] |= 1 << bit
 	}
 
 	binary.BigEndian.PutUint16(bytes, uint16(messagesCount))

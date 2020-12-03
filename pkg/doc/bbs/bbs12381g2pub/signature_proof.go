@@ -24,10 +24,10 @@ type SignatureProof struct {
 	proofVC2 *ProofG1
 }
 
-func (sp SignatureProof) GetBytesForChallenge(revealed []int, h0 *bls12381.PointG1, h []*bls12381.PointG1) []byte {
+func (sp SignatureProof) GetBytesForChallenge(revealed []int, publicKey *PublicKeyWithGenerators) []byte {
 	g1 := bls12381.NewG1()
 
-	hiddenCount := len(h) - len(revealed)
+	hiddenCount := publicKey.messagesCount - len(revealed)
 
 	bytesLen := (7 + hiddenCount) * g1UncompressedSize
 	bytes := make([]byte, 0, bytesLen)
@@ -39,14 +39,14 @@ func (sp SignatureProof) GetBytesForChallenge(revealed []int, h0 *bls12381.Point
 
 	bytes = append(bytes, g1.ToUncompressed(sp.aBar)...)
 	bytes = append(bytes, g1.ToUncompressed(sp.aPrime)...)
-	bytes = append(bytes, g1.ToUncompressed(h0)...)
+	bytes = append(bytes, g1.ToUncompressed(publicKey.h0)...)
 	bytes = append(bytes, g1.ToUncompressed(sp.proofVC1.commitment)...)
 	bytes = append(bytes, g1.ToUncompressed(sp.d)...)
-	bytes = append(bytes, g1.ToUncompressed(h0)...)
+	bytes = append(bytes, g1.ToUncompressed(publicKey.h0)...)
 
-	for i := range h {
+	for i := range publicKey.h {
 		if _, ok := revealedMap[i]; !ok {
-			bytes = append(bytes, g1.ToUncompressed(h[i])...)
+			bytes = append(bytes, g1.ToUncompressed(publicKey.h[i])...)
 		}
 	}
 
@@ -55,20 +55,19 @@ func (sp SignatureProof) GetBytesForChallenge(revealed []int, h0 *bls12381.Point
 	return bytes
 }
 
-func (sp *SignatureProof) verify(challenge *bls12381.Fr, publicKey *PublicKey,
-	h0 *bls12381.PointG1, h []*bls12381.PointG1,
+func (sp *SignatureProof) verify(challenge *bls12381.Fr, publicKey *PublicKeyWithGenerators,
 	revealedMessages map[int]*SignatureMessage, messagesFr []*SignatureMessage) error {
 	g1, g2 := bls12381.NewG1(), bls12381.NewG2()
 
 	aBar := new(bls12381.PointG1)
 	g1.Neg(aBar, sp.aBar)
 
-	ok := compareTwoPairings(sp.aPrime, publicKey.PointG2, aBar, g2.One())
+	ok := compareTwoPairings(sp.aPrime, publicKey.w, aBar, g2.One())
 	if !ok {
 		return errors.New("bad signature")
 	}
 
-	bases := []*bls12381.PointG1{sp.aPrime, h0}
+	bases := []*bls12381.PointG1{sp.aPrime, publicKey.h0}
 	aBarD := new(bls12381.PointG1)
 	g1.Sub(aBarD, sp.aBar, sp.d)
 
@@ -77,12 +76,11 @@ func (sp *SignatureProof) verify(challenge *bls12381.Fr, publicKey *PublicKey,
 		return errors.New("bad signature (vc1)")
 	}
 
-	messagesCount := len(h)
 	revealedMessagesCount := len(revealedMessages)
 
-	basesVc2 := make([]*bls12381.PointG1, 0, 2+messagesCount-revealedMessagesCount)
+	basesVc2 := make([]*bls12381.PointG1, 0, 2+publicKey.messagesCount-revealedMessagesCount)
 	basesVc2 = append(basesVc2, sp.d)
-	basesVc2 = append(basesVc2, h0)
+	basesVc2 = append(basesVc2, publicKey.h0)
 
 	basesDisclosed := make([]*bls12381.PointG1, 0, 1+revealedMessagesCount)
 	exponents := make([]*bls12381.Fr, 0, 1+revealedMessagesCount)
@@ -90,13 +88,13 @@ func (sp *SignatureProof) verify(challenge *bls12381.Fr, publicKey *PublicKey,
 	exponents = append(exponents, bls12381.NewFr().RedOne())
 
 	messagesFrInd := 0
-	for i := range h {
+	for i := range publicKey.h {
 		if _, ok := revealedMessages[i]; ok {
-			basesDisclosed = append(basesDisclosed, h[i])
+			basesDisclosed = append(basesDisclosed, publicKey.h[i])
 			exponents = append(exponents, messagesFr[messagesFrInd].FR)
 			messagesFrInd++
 		} else {
-			basesVc2 = append(basesVc2, h[i])
+			basesVc2 = append(basesVc2, publicKey.h[i])
 		}
 	}
 

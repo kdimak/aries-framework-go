@@ -66,27 +66,19 @@ func (bbs *BBSG2Pub) Verify(messages [][]byte, sigBytes, pubKeyBytes []byte) err
 		return fmt.Errorf("parse public key: %w", err)
 	}
 
+	messagesCount := len(messages)
+
+	publicKeyWithGenerators, err := publicKey.ToPublicKeyWithGenerators(messagesCount)
+	if err != nil {
+		return fmt.Errorf("build generators from public key: %w", err)
+	}
+
 	messagesFr, err := messagesToFr(messages)
 	if err != nil {
 		return fmt.Errorf("parse signature messages: %w", err)
 	}
 
-	p1 := signature.A
-
-	q1 := bbs.g2.One()
-	bbs.g2.MulScalar(q1, q1, frToRepr(signature.E))
-	bbs.g2.Add(q1, q1, publicKey.PointG2)
-
-	p2, err := bbs.getB(signature.S, messagesFr, publicKey)
-	if err != nil {
-		return fmt.Errorf("get B point: %w", err)
-	}
-
-	if compareTwoPairings(p1, q1, p2, bbs.g2.One()) {
-		return nil
-	}
-
-	return errors.New("BLS12-381: invalid signature")
+	return signature.Verify(messagesFr, publicKeyWithGenerators)
 }
 
 // Sign signs the one or more messages using private key in compressed form.
@@ -124,6 +116,11 @@ func (bbs *BBSG2Pub) VerifyProof(messages [][]byte, proof, nonce, pubKeyBytes []
 	}
 	fmt.Printf("publicKey = %v\n", publicKey)
 
+	publicKeyWithGenerators, err := publicKey.ToPublicKeyWithGenerators(messagesCount)
+	if err != nil {
+		return fmt.Errorf("build generators from public key: %w", err)
+	}
+
 	proofNonce, err := ParseProofNonce(nonce)
 	if err != nil {
 		return fmt.Errorf("parse nonce: %w", err)
@@ -135,21 +132,31 @@ func (bbs *BBSG2Pub) VerifyProof(messages [][]byte, proof, nonce, pubKeyBytes []
 		revealedMessages[revealed[i]] = messagesFr[i]
 	}
 
-	h0, h, err := bbs.calcH(publicKey, messagesCount)
-	if err != nil {
-		return err
-	}
-
-	challengeBytes := signatureProof.GetBytesForChallenge(revealed, h0, h)
+	challengeBytes := signatureProof.GetBytesForChallenge(revealed, publicKeyWithGenerators)
 	proofNonceBytes := frToRepr(proofNonce.fr).ToBytes()
 	challengeBytes = append(challengeBytes, proofNonceBytes...)
-
 	proofChallenge := frFromOKM(challengeBytes)
 
-	return signatureProof.verify(proofChallenge, publicKey, h0, h, revealedMessages, messagesFr)
+	return signatureProof.verify(proofChallenge, publicKeyWithGenerators, revealedMessages, messagesFr)
 }
 
-func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, signature, nonce, pubKey []byte, revealedIndexes []int) ([]byte, error) {
+type ProofMessageType int
+
+const (
+	Revealed ProofMessageType = iota + 1
+	Hidden
+)
+
+type ProofMessage struct {
+	message     *SignatureMessage
+	messageType ProofMessageType
+}
+
+func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes []byte, revealedIndexes []int) ([]byte, error) {
+	if len(revealedIndexes) == 0 {
+		return nil, errors.New("no message to reveal")
+	}
+
 	sort.Ints(revealedIndexes)
 
 	messagesCount := len(messages)
@@ -157,16 +164,42 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, signature, nonce, pubKey []b
 	bitvector := revealedToBitvector(messagesCount, revealedIndexes)
 	fmt.Printf("bitvector (%d): %v\n", len(bitvector), bitvector)
 
+	messagesFr, err := messagesToFr(messages)
+	if err != nil {
+		return nil, fmt.Errorf("parse signature messages: %w", err)
+	}
+	fmt.Printf("messagesFr = %v\n", messagesFr)
+
+	publicKey, err := UnmarshalPublicKey(pubKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse public key: %w", err)
+	}
+	fmt.Printf("publicKey = %v\n", publicKey)
+
+	publicKeyWithGenerators, err := publicKey.ToPublicKeyWithGenerators(messagesCount)
+	if err != nil {
+		return nil, fmt.Errorf("build generators from public key: %w", err)
+	}
+
+	signature, err := ParseSignature(sigBytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse signature: %w", err)
+	}
+	fmt.Printf("signature = %v\n", signature)
+
+	pokSignature, err := NewPoKSignature(signature, messagesFr, revealedIndexes, publicKeyWithGenerators)
+	if err != nil {
+		return nil, fmt.Errorf("init proof of knowledge signature: %w", err)
+	}
+	fmt.Printf("pokSignature = %v\n", pokSignature)
+
 	return nil, errors.New("not implemented")
 }
 
-func createRandSignatureFr() (*bls12381.Fr, error) {
-	fr, err := bls12381.NewFr().Rand(rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("create random FR: %w", err)
-	}
+func createRandSignatureFr() *bls12381.Fr {
+	fr, _ := bls12381.NewFr().Rand(rand.Reader) //nolint:errcheck
 
-	return frToRepr(fr), nil
+	return frToRepr(fr)
 }
 
 // SignWithKey signs the one or more messages using BBS+ key pair.
@@ -174,6 +207,11 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 	var err error
 
 	pubKey := privKey.PublicKey()
+	messagesCount := len(messages)
+	pubKeyWithGenerators, err := pubKey.ToPublicKeyWithGenerators(messagesCount)
+	if err != nil {
+		return nil, fmt.Errorf("build generators from public key: %w", err)
+	}
 
 	messagesFr := make([]*SignatureMessage, len(messages))
 	for i := range messages {
@@ -183,26 +221,13 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 		}
 	}
 
-	e, err := createRandSignatureFr()
-	if err != nil {
-		return nil, fmt.Errorf("create signature.E: %w", err)
-	}
-
-	s, err := createRandSignatureFr()
-	if err != nil {
-		return nil, fmt.Errorf("create signature.S: %w", err)
-	}
-
-	b, err := bbs.computeB(s, messagesFr, pubKey)
-	if err != nil {
-		return nil, fmt.Errorf("compute B point: %w", err)
-	}
-
+	e, s := createRandSignatureFr(), createRandSignatureFr()
 	exp := bls12381.NewFr().Set(privKey.FR)
 	exp.Add(exp, e)
 	exp.Inverse(exp)
 
 	sig := bbs.g1.New()
+	b := computeB(s, messagesFr, pubKeyWithGenerators)
 	bbs.g1.MulScalar(sig, b, frToRepr(exp))
 
 	signature := &Signature{
@@ -214,86 +239,67 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 	return signature.ToBytes()
 }
 
-// todo introduce a separate class?
-func (bbs *BBSG2Pub) calcH(key *PublicKey, messagesCount int) (*bls12381.PointG1, []*bls12381.PointG1, error) {
-	offset := g2UncompressedSize + 1
-
-	data := bbs.calcData(key, messagesCount)
-
-	h0, err := bbs.hashToG1(data)
-	if err != nil {
-		return nil, nil, fmt.Errorf("create G1 point from hash")
-	}
-
-	h := make([]*bls12381.PointG1, messagesCount)
-
-	for i := 1; i <= messagesCount; i++ {
-		dataCopy := make([]byte, len(data))
-		copy(dataCopy, data)
-
-		iBytes := uint32ToBytes(uint32(i))
-
-		for j := 0; j < len(iBytes); j++ {
-			dataCopy[j+offset] = iBytes[j]
-		}
-
-		h[i-1], err = bbs.hashToG1(dataCopy)
-		if err != nil {
-			return nil, nil, fmt.Errorf("create G1 point from hash: %w", err)
-		}
-	}
-
-	return h0, h, nil
-}
-
-func (bbs *BBSG2Pub) computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKey) (*bls12381.PointG1, error) {
+func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGenerators) *bls12381.PointG1 {
 	const basesOffset = 2
 
-	messagesCount := len(messages)
+	cb := newCommitmentBuilder(len(messages) + basesOffset)
+	g1 := bls12381.NewG1()
 
-	bases := make([]*bls12381.PointG1, messagesCount+basesOffset)
-	scalars := make([]*bls12381.Fr, messagesCount+basesOffset)
-
-	bases[0] = bbs.g1.One()
-	scalars[0] = bls12381.NewFr().RedOne()
-
-	h0, h, err := bbs.calcH(key, messagesCount)
-	if err != nil {
-		return nil, err
-	}
-
-	bases[1] = h0
-	scalars[1] = s
+	cb.add(g1.One(), bls12381.NewFr().RedOne())
+	cb.add(key.h0, s)
 
 	for i := 0; i < len(messages); i++ {
-		bases[i+basesOffset] = h[i]
-		scalars[i+basesOffset] = messages[i].FR
+		cb.add(key.h[i], messages[i].FR)
 	}
 
-	res := bbs.g1.Zero()
+	return cb.build()
+}
+
+type commitmentBuilder struct {
+	bases   []*bls12381.PointG1
+	scalars []*bls12381.Fr
+}
+
+func newCommitmentBuilder(expectedSize int) *commitmentBuilder {
+	return &commitmentBuilder{
+		bases:   make([]*bls12381.PointG1, 0, expectedSize),
+		scalars: make([]*bls12381.Fr, 0, expectedSize),
+	}
+}
+
+func (cb *commitmentBuilder) add(base *bls12381.PointG1, scalar *bls12381.Fr) {
+	cb.bases = append(cb.bases, base)
+	cb.scalars = append(cb.scalars, scalar)
+}
+
+func (cb *commitmentBuilder) build() *bls12381.PointG1 {
+	return sumOfG1Products(cb.bases, cb.scalars)
+}
+
+func sumOfG1Products(bases []*bls12381.PointG1, scalars []*bls12381.Fr) *bls12381.PointG1 {
+	g1 := bls12381.NewG1()
+	res := g1.Zero()
 
 	for i := 0; i < len(bases); i++ {
 		b := bases[i]
 		s := scalars[i]
 
-		g := bbs.g1.New()
+		g := g1.New()
 
-		bbs.g1.MulScalar(g, b, frToRepr(s))
-		bbs.g1.Add(res, res, g)
+		g1.MulScalar(g, b, frToRepr(s))
+		g1.Add(res, res, g)
 	}
 
-	return res, nil
+	return res
 }
 
-func (bbs *BBSG2Pub) getB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKey) (*bls12381.PointG1, error) {
-	b, err := bbs.computeB(s, messages, key)
-	if err != nil {
-		return nil, err
-	}
+func getB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGenerators) *bls12381.PointG1 {
+	b := computeB(s, messages, key)
 
-	bbs.g1.Neg(b, b)
+	g1 := bls12381.NewG1()
+	g1.Neg(b, b)
 
-	return b, nil
+	return b
 }
 
 func (bbs *BBSG2Pub) calcData(key *PublicKey, messagesCount int) []byte {
