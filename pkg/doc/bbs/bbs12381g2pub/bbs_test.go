@@ -191,6 +191,8 @@ func TestBBSG2Pub_DeriveProof(t *testing.T) {
 
 	signatureBytes, err := bls.Sign(messagesBytes, privKeyBytes)
 	require.NoError(t, err)
+	t.Logf("signatureBytes=%v", signatureBytes)
+	t.Logf("signatureB64=%v", base64.RawStdEncoding.EncodeToString(signatureBytes))
 
 	pubKeyBytes, err := pubKey.Marshal()
 	require.NoError(t, err)
@@ -202,6 +204,28 @@ func TestBBSG2Pub_DeriveProof(t *testing.T) {
 	nonce := []byte("nonce")
 	proofBytes, err := bls.DeriveProof(messagesBytes, signatureBytes, nonce, pubKeyBytes, []int{0})
 	require.NoError(t, err)
+	require.NotEmpty(t, proofBytes)
 
-	require.NoError(t, bls.VerifyProof(messagesBytes[0:1], proofBytes, nonce, pubKeyBytes))
+	// todo uncomment
+	//require.NoError(t, bls.VerifyProof(messagesBytes[0:1], proofBytes, nonce, pubKeyBytes))
+}
+
+func TestBBSG2Pub_DeriveProofSeparate(t *testing.T) {
+	pkBase64 := "hdtkj9H8WmL0AQimFa/6At1IMOjOiOP3UUJkhlQ5zNOGom8lvWAMvHspeyYQeTYDAVRRJr08N5M1Rnufg+XL95MjiS86GkChduxgH4sXiXjM3o9sZSrIb6cBDe+XRX11"
+	pkBytes, err := base64.RawStdEncoding.DecodeString(pkBase64)
+	require.NoError(t, err)
+
+	sigBase64 := "sKpQmQ5avEoBK4HzA8bvZI0rj1uRHIoXK6YOA+F3LCNiYOjL6xnWsH14PK0Wf0MOWrwvUpBo13UzbKtDtAvDvZpdc2gmvOZ238WWXc/gTAVSDIEW9SeLp4gUuMut6+zAi87ecRgI1GEGRR4lPHneVA"
+	sigBytes, err := base64.RawStdEncoding.DecodeString(sigBase64)
+	require.NoError(t, err)
+
+	messagesBytes := [][]byte{[]byte("message1"), []byte("message2")}
+	bls := bbs12381g2pub.New()
+
+	nonce := []byte("nonce")
+	proofBytes, err := bls.DeriveProof(messagesBytes, sigBytes, nonce, pkBytes, []int{0})
+	require.NoError(t, err)
+	require.NotEmpty(t, proofBytes)
+
+	require.NoError(t, bls.VerifyProof(messagesBytes[0:1], proofBytes, nonce, pkBytes))
 }

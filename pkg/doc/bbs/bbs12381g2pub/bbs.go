@@ -121,10 +121,7 @@ func (bbs *BBSG2Pub) VerifyProof(messages [][]byte, proof, nonce, pubKeyBytes []
 		return fmt.Errorf("build generators from public key: %w", err)
 	}
 
-	proofNonce, err := ParseProofNonce(nonce)
-	if err != nil {
-		return fmt.Errorf("parse nonce: %w", err)
-	}
+	proofNonce := ParseProofNonce(nonce)
 	fmt.Printf("proofNonce = %v\n", proofNonce)
 
 	revealedMessages := make(map[int]*SignatureMessage)
@@ -133,7 +130,7 @@ func (bbs *BBSG2Pub) VerifyProof(messages [][]byte, proof, nonce, pubKeyBytes []
 	}
 
 	challengeBytes := signatureProof.GetBytesForChallenge(revealed, publicKeyWithGenerators)
-	proofNonceBytes := frToRepr(proofNonce.fr).ToBytes()
+	proofNonceBytes := proofNonce.ToBytes()
 	challengeBytes = append(challengeBytes, proofNonceBytes...)
 	proofChallenge := frFromOKM(challengeBytes)
 
@@ -160,9 +157,6 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 	sort.Ints(revealedIndexes)
 
 	messagesCount := len(messages)
-
-	bitvector := revealedToBitvector(messagesCount, revealedIndexes)
-	fmt.Printf("bitvector (%d): %v\n", len(bitvector), bitvector)
 
 	messagesFr, err := messagesToFr(messages)
 	if err != nil {
@@ -191,9 +185,26 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 	if err != nil {
 		return nil, fmt.Errorf("init proof of knowledge signature: %w", err)
 	}
-	fmt.Printf("pokSignature = %v\n", pokSignature)
 
-	return nil, errors.New("not implemented")
+	fmt.Printf("pokSignature = %v\n", pokSignature)
+	challengeBytes := pokSignature.Marshal()
+
+	proofNonce := ParseProofNonce(nonce)
+	proofNonceBytes := proofNonce.ToBytes()
+	challengeBytes = append(challengeBytes, proofNonceBytes...)
+
+	challengeHash := frFromOKM(challengeBytes)
+
+	proof := pokSignature.generateProof(challengeHash)
+
+	bitvector := revealedToBitvector(messagesCount, revealedIndexes)
+	fmt.Printf("bitvector (%d): %v\n", len(bitvector), bitvector)
+
+	proofBytes := proof.ToBytes()
+	fmt.Printf("proof bytes (%d): %v\n", len(proofBytes), proofBytes)
+	bitvector = append(bitvector, proofBytes...)
+
+	return bitvector, nil
 }
 
 func createRandSignatureFr() *bls12381.Fr {

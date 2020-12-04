@@ -12,8 +12,12 @@ type ProofNonce struct {
 	fr *bls12381.Fr
 }
 
-func ParseProofNonce(proofNonceBytes []byte) (*ProofNonce, error) {
+func ParseProofNonce(proofNonceBytes []byte) *ProofNonce {
 	return &ProofNonce{
 		frFromOKM(proofNonceBytes),
-	}, nil
+	}
+}
+
+func (pn *ProofNonce) ToBytes() []byte {
+	return frToRepr(pn.fr).ToBytes()
 }

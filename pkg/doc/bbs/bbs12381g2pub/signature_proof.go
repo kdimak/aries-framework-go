@@ -7,15 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
 	bls12381 "github.com/kilic/bls12-381"
 )
 
-// SignatureProof defines BLS signature proof).
+// PoKOfSignatureProof defines BLS signature proof.
 // It is the actual proof that is sent from prover to verifier.
-type SignatureProof struct {
+type PoKOfSignatureProof struct {
 	aPrime *bls12381.PointG1
 	aBar   *bls12381.PointG1
 	d      *bls12381.PointG1
@@ -24,7 +25,7 @@ type SignatureProof struct {
 	proofVC2 *ProofG1
 }
 
-func (sp SignatureProof) GetBytesForChallenge(revealed []int, publicKey *PublicKeyWithGenerators) []byte {
+func (sp *PoKOfSignatureProof) GetBytesForChallenge(revealed []int, publicKey *PublicKeyWithGenerators) []byte {
 	g1 := bls12381.NewG1()
 
 	hiddenCount := publicKey.messagesCount - len(revealed)
@@ -55,7 +56,7 @@ func (sp SignatureProof) GetBytesForChallenge(revealed []int, publicKey *PublicK
 	return bytes
 }
 
-func (sp *SignatureProof) verify(challenge *bls12381.Fr, publicKey *PublicKeyWithGenerators,
+func (sp *PoKOfSignatureProof) verify(challenge *bls12381.Fr, publicKey *PublicKeyWithGenerators,
 	revealedMessages map[int]*SignatureMessage, messagesFr []*SignatureMessage) error {
 	g1, g2 := bls12381.NewG1(), bls12381.NewG2()
 
@@ -119,6 +120,28 @@ func (sp *SignatureProof) verify(challenge *bls12381.Fr, publicKey *PublicKeyWit
 	return nil
 }
 
+func (sp *PoKOfSignatureProof) ToBytes() []byte {
+	bytes := make([]byte, 0)
+
+	g1 := bls12381.NewG1()
+
+	bytes = append(bytes, g1.ToCompressed(sp.aPrime)...)
+	bytes = append(bytes, g1.ToCompressed(sp.aBar)...)
+	bytes = append(bytes, g1.ToCompressed(sp.d)...)
+
+	proof1Bytes := sp.proofVC1.ToBytes()
+	lenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes, uint32(len(proof1Bytes)))
+	fmt.Printf("proof1BytesLen=%d\n", len(proof1Bytes))
+	fmt.Printf("proof1Bytes=%v\n", proof1Bytes)
+	bytes = append(bytes, lenBytes...)
+	bytes = append(bytes, proof1Bytes...)
+
+	bytes = append(bytes, sp.proofVC2.ToBytes()...)
+
+	return bytes
+}
+
 type ProofG1 struct {
 	commitment *bls12381.PointG1
 	responses  []*bls12381.Fr
@@ -142,24 +165,44 @@ func (pg1 *ProofG1) getChallengeContribution(bases []*bls12381.PointG1, commitme
 	points := append(bases, commitment)
 	scalars := append(pg1.responses, challenge)
 
-	g1 := bls12381.NewG1()
+	return sumOfG1Products(points, scalars)
 
-	res := g1.Zero()
-
-	for i := 0; i < len(points); i++ {
-		b := points[i]
-		s := scalars[i]
-
-		g := g1.New()
-
-		g1.MulScalar(g, b, frToRepr(s))
-		g1.Add(res, res, g)
-	}
-
-	return res
+	//g1 := bls12381.NewG1()
+	//
+	//res := g1.Zero()
+	//
+	//for i := 0; i < len(points); i++ {
+	//	b := points[i]
+	//	s := scalars[i]
+	//
+	//	g := g1.New()
+	//
+	//	g1.MulScalar(g, b, frToRepr(s))
+	//	g1.Add(res, res, g)
+	//}
+	//
+	//return res
 }
 
-func ParseSignatureProof(sigProofBytes []byte) (*SignatureProof, error) {
+func (pg1 *ProofG1) ToBytes() []byte {
+	bytes := make([]byte, 0)
+
+	g1 := bls12381.NewG1()
+
+	bytes = append(bytes, g1.ToCompressed(pg1.commitment)...)
+
+	lenBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(lenBytes, uint32(len(pg1.responses)))
+	bytes = append(bytes, lenBytes...)
+
+	for i := range pg1.responses {
+		bytes = append(bytes, frToRepr(pg1.responses[i]).ToBytes()...)
+	}
+
+	return bytes
+}
+
+func ParseSignatureProof(sigProofBytes []byte) (*PoKOfSignatureProof, error) {
 	if len(sigProofBytes) < g1CompressedSize*3 {
 		return nil, errors.New("invalid size of signature proof")
 	}
@@ -183,8 +226,8 @@ func ParseSignatureProof(sigProofBytes []byte) (*SignatureProof, error) {
 
 	proof1BytesLen := int(uint32FromBytes(sigProofBytes[offset : offset+4]))
 	offset += 4
-
-	fmt.Printf("proof1BytesLen = %d\n", proof1BytesLen)
+	fmt.Printf("proof1BytesLen=%d\n", proof1BytesLen)
+	fmt.Printf("proof1Bytes=%v\n", sigProofBytes[offset:offset+proof1BytesLen])
 
 	proofVc1, err := ParseProofG1(sigProofBytes[offset : offset+proof1BytesLen])
 	if err != nil {
@@ -197,7 +240,7 @@ func ParseSignatureProof(sigProofBytes []byte) (*SignatureProof, error) {
 		return nil, fmt.Errorf("parse G1 proof: %w", err)
 	}
 
-	return &SignatureProof{
+	return &PoKOfSignatureProof{
 		aPrime:   g1Points[0],
 		aBar:     g1Points[1],
 		d:        g1Points[2],
