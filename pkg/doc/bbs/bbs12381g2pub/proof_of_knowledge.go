@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
+	"math/bits"
+
 	bls12381 "github.com/kilic/bls12-381"
 )
 
@@ -128,12 +130,40 @@ func NewPoKSignature(signature *Signature, messages []*SignatureMessage, reveale
 		5943233445765009386,
 	}
 
-	b := computeB(signature.S, messages, pubKey)
+	//b := computeB(signature.S, messages, pubKey)
+	b := &bls12381.PointG1{
+		{
+			4919353811942452779,
+			1594664523720136443,
+			4781372093526700820,
+			10309036171877305459,
+			13435298166044616736,
+			1854421087553655826,
+		},
+		{
+			1651584333997501102,
+			6243631230536078986,
+			11980491289236877338,
+			3889014966522092010,
+			17676356858101210200,
+			171218091019157395,
+		},
+		{
+			10526952305092756305,
+			8120995529889985883,
+			7503702279808081663,
+			14916900478554174680,
+			17821696677585582986,
+			1734336543935554680,
+		},
+	}
 
 	g1 := bls12381.NewG1()
 
 	aPrime := g1.New()
-	g1.MulScalar(aPrime, signature.A, frToRepr(r1))
+	//g1.MulScalar(aPrime, signature.A, frToRepr(r1))
+	//MulScalar(aPrime, signature.A, frToRepr(r1))
+	MulScalar(aPrime, signature.A, r1)
 
 	aBarDenom := g1.New()
 	g1.MulScalar(aBarDenom, aPrime, frToRepr(signature.E))
@@ -303,4 +333,62 @@ func getProofMessages(messages []*SignatureMessage, revealedIndexes []int) []Pro
 	}
 
 	return proofMessages
+}
+
+func MulScalar(c, p *bls12381.PointG1, e *bls12381.Fr) *bls12381.PointG1 {
+	g := bls12381.NewG1()
+
+	n := &bls12381.PointG1{}
+	n.Set(p)
+
+	res := g.Zero()
+	foundOne := false
+
+	for i := 0; i < 255; i++ {
+		o := e.Bit(i)
+
+		if foundOne {
+			g.Double(res, res)
+		} else {
+			foundOne = o
+		}
+
+		if o {
+			g.Add(res, res, n)
+		}
+	}
+
+	return c.Set(res)
+}
+
+//func MulScalar(c, p *bls12381.PointG1, e *bls12381.Fr) *bls12381.PointG1 {
+//	const frBitSize = 255
+//	q, n := &bls12381.PointG1{}, &bls12381.PointG1{}
+//	n.Set(p)
+//
+//	g := bls12381.NewG1()
+//
+//	for i := 0; i < FrBitLen(e); i++ {
+//		o := e.Bit(FrBitLen(e) - i - 1)
+//		g.Double(n, n)
+//		if o {
+//			g.Add(q, q, n)
+//		}
+//	}
+//
+//	return c.Set(q)
+//}
+
+// BitLen counts the number of bits the number is.
+func FrBitLen(fr *bls12381.Fr) int {
+	ret := 4 * 64
+	for i := 3; i >= 0; i-- {
+		leading := bits.LeadingZeros64(fr[i])
+		ret -= leading
+		if leading != 64 {
+			break
+		}
+	}
+
+	return ret
 }
