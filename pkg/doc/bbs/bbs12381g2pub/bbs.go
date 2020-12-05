@@ -7,28 +7,25 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"hash"
 	"sort"
 
 	bls12381 "github.com/kilic/bls12-381"
-	"golang.org/x/crypto/blake2b"
+)
+
+var (
+	g1 = bls12381.NewG1()
+	g2 = bls12381.NewG2()
 )
 
 // BBSG2Pub defines BBS+ signature scheme where public key is a point in the field of G2.
 type BBSG2Pub struct {
-	g1 *bls12381.G1
-	g2 *bls12381.G2
 }
 
 // New creates a new BBSG2Pub.
 func New() *BBSG2Pub {
-	return &BBSG2Pub{
-		g1: bls12381.NewG1(),
-		g2: bls12381.NewG2(),
-	}
+	return &BBSG2Pub{}
 }
 
 const (
@@ -95,60 +92,45 @@ func (bbs *BBSG2Pub) Sign(messages [][]byte, privKeyBytes []byte) ([]byte, error
 	return bbs.SignWithKey(messages, privKey)
 }
 
-func (bbs *BBSG2Pub) VerifyProof(messages [][]byte, proof, nonce, pubKeyBytes []byte) error {
+// VerifyProof verifies BBS+ signature proof for one ore more revealed messages.
+func (bbs *BBSG2Pub) VerifyProof(messagesBytes [][]byte, proof, nonce, pubKeyBytes []byte) error {
 	messagesCount, offset, revealed := bitvectorToRevealed(proof)
 
 	signatureProof, err := ParseSignatureProof(proof[offset:])
 	if err != nil {
-		return fmt.Errorf("parse compressed signature proof: %w", err)
+		return fmt.Errorf("parse signature proof: %w", err)
 	}
-	fmt.Printf("signatureProof = %v\n", signatureProof)
 
-	messagesFr, err := messagesToFr(messages)
+	messages, err := messagesToFr(messagesBytes)
 	if err != nil {
 		return fmt.Errorf("parse signature messages: %w", err)
 	}
-	fmt.Printf("messagesFr = %v\n", messagesFr)
 
 	publicKey, err := UnmarshalPublicKey(pubKeyBytes)
 	if err != nil {
 		return fmt.Errorf("parse public key: %w", err)
 	}
-	fmt.Printf("publicKey = %v\n", publicKey)
 
 	publicKeyWithGenerators, err := publicKey.ToPublicKeyWithGenerators(messagesCount)
 	if err != nil {
 		return fmt.Errorf("build generators from public key: %w", err)
 	}
 
-	proofNonce := ParseProofNonce(nonce)
-	fmt.Printf("proofNonce = %v\n", proofNonce)
-
 	revealedMessages := make(map[int]*SignatureMessage)
 	for i := range revealed {
-		revealedMessages[revealed[i]] = messagesFr[i]
+		revealedMessages[revealed[i]] = messages[i]
 	}
 
-	challengeBytes := signatureProof.GetBytesForChallenge(revealed, publicKeyWithGenerators)
+	challengeBytes := signatureProof.GetBytesForChallenge(revealedMessages, publicKeyWithGenerators)
+	proofNonce := ParseProofNonce(nonce)
 	proofNonceBytes := proofNonce.ToBytes()
 	challengeBytes = append(challengeBytes, proofNonceBytes...)
 	proofChallenge := frFromOKM(challengeBytes)
 
-	return signatureProof.verify(proofChallenge, publicKeyWithGenerators, revealedMessages, messagesFr)
+	return signatureProof.Verify(proofChallenge, publicKeyWithGenerators, revealedMessages, messages)
 }
 
-type ProofMessageType int
-
-const (
-	Revealed ProofMessageType = iota + 1
-	Hidden
-)
-
-type ProofMessage struct {
-	message     *SignatureMessage
-	messageType ProofMessageType
-}
-
+// DeriveProof derives a proof of BBS+ signature with some messages disclosed.
 func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes []byte, revealedIndexes []int) ([]byte, error) {
 	if len(revealedIndexes) == 0 {
 		return nil, errors.New("no message to reveal")
@@ -162,13 +144,11 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 	if err != nil {
 		return nil, fmt.Errorf("parse signature messages: %w", err)
 	}
-	fmt.Printf("messagesFr = %v\n", messagesFr)
 
 	publicKey, err := UnmarshalPublicKey(pubKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("parse public key: %w", err)
 	}
-	fmt.Printf("publicKey = %v\n", publicKey)
 
 	publicKeyWithGenerators, err := publicKey.ToPublicKeyWithGenerators(messagesCount)
 	if err != nil {
@@ -179,39 +159,26 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 	if err != nil {
 		return nil, fmt.Errorf("parse signature: %w", err)
 	}
-	fmt.Printf("signature = %v\n", signature)
 
 	pokSignature, err := NewPoKOfSignature(signature, messagesFr, revealedIndexes, publicKeyWithGenerators)
 	if err != nil {
 		return nil, fmt.Errorf("init proof of knowledge signature: %w", err)
 	}
 
-	challengeBytes := pokSignature.Marshal()
+	challengeBytes := pokSignature.ToBytes()
 
 	proofNonce := ParseProofNonce(nonce)
 	proofNonceBytes := proofNonce.ToBytes()
-	fmt.Printf("proofNonceBytes=%v\n", proofNonceBytes)
 	challengeBytes = append(challengeBytes, proofNonceBytes...)
-	fmt.Printf("challengeBytes=%v\n", challengeBytes)
 
-	challengeHash := frFromOKM(challengeBytes)
+	proofChallenge := frFromOKM(challengeBytes)
 
-	proof := pokSignature.generateProof(challengeHash)
+	proof := pokSignature.GenerateProof(proofChallenge)
 
-	bitvector := revealedToBitvector(messagesCount, revealedIndexes)
-	fmt.Printf("bitvector (%d): %v\n", len(bitvector), bitvector)
+	signatureProofBytes := revealedToBitvector(messagesCount, revealedIndexes)
+	signatureProofBytes = append(signatureProofBytes, proof.ToBytes()...)
 
-	proofBytes := proof.ToBytes()
-	fmt.Printf("proof bytes (%d): %v\n", len(proofBytes), proofBytes)
-	bitvector = append(bitvector, proofBytes...)
-
-	return bitvector, nil
-}
-
-func createRandSignatureFr() *bls12381.Fr {
-	fr, _ := bls12381.NewFr().Rand(rand.Reader) //nolint:errcheck
-
-	return frToRepr(fr)
+	return signatureProofBytes, nil
 }
 
 // SignWithKey signs the one or more messages using BBS+ key pair.
@@ -238,10 +205,8 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 	exp.Add(exp, e)
 	exp.Inverse(exp)
 
-	sig := bbs.g1.New()
+	sig := g1.New()
 	b := computeB(s, messagesFr, pubKeyWithGenerators)
-
-	g1 := bls12381.NewG1()
 
 	g1.MulScalar(sig, b, frToRepr(exp))
 
@@ -258,7 +223,6 @@ func computeB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGe
 	const basesOffset = 2
 
 	cb := newCommitmentBuilder(len(messages) + basesOffset)
-	g1 := bls12381.NewG1()
 
 	cb.add(g1.One(), bls12381.NewFr().RedOne())
 	cb.add(key.h0, s)
@@ -292,7 +256,6 @@ func (cb *commitmentBuilder) build() *bls12381.PointG1 {
 }
 
 func sumOfG1Products(bases []*bls12381.PointG1, scalars []*bls12381.Fr) *bls12381.PointG1 {
-	g1 := bls12381.NewG1()
 	res := g1.Zero()
 
 	for i := 0; i < len(bases); i++ {
@@ -306,39 +269,6 @@ func sumOfG1Products(bases []*bls12381.PointG1, scalars []*bls12381.Fr) *bls1238
 	}
 
 	return res
-}
-
-func getB(s *bls12381.Fr, messages []*SignatureMessage, key *PublicKeyWithGenerators) *bls12381.PointG1 {
-	b := computeB(s, messages, key)
-
-	g1 := bls12381.NewG1()
-	g1.Neg(b, b)
-
-	return b
-}
-
-func (bbs *BBSG2Pub) calcData(key *PublicKey, messagesCount int) []byte {
-	data := bbs.g2.ToUncompressed(key.PointG2)
-
-	data = append(data, 0, 0, 0, 0, 0, 0)
-
-	mcBytes := uint32ToBytes(uint32(messagesCount))
-
-	data = append(data, mcBytes...)
-
-	return data
-}
-
-func (bbs *BBSG2Pub) hashToG1(data []byte) (*bls12381.PointG1, error) {
-	dstG1 := []byte("BLS12381G1_XMD:BLAKE2B_SSWU_RO_BBS+_SIGNATURES:1_0_0")
-
-	newBlake2b := func() hash.Hash {
-		// We pass a null key so error is impossible here.
-		h, _ := blake2b.New512(nil) //nolint:errcheck
-		return h
-	}
-
-	return bbs.g1.HashToCurve(newBlake2b, data, dstG1)
 }
 
 func compareTwoPairings(p1 *bls12381.PointG1, q1 *bls12381.PointG2,

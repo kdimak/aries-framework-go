@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
+	"crypto/rand"
 	"fmt"
 
 	bls12381 "github.com/kilic/bls12-381"
@@ -64,4 +65,10 @@ func messagesToFr(messages [][]byte) ([]*SignatureMessage, error) {
 	}
 
 	return messagesFr, nil
+}
+
+func createRandSignatureFr() *bls12381.Fr {
+	fr, _ := bls12381.NewFr().Rand(rand.Reader) //nolint:errcheck
+
+	return frToRepr(fr)
 }

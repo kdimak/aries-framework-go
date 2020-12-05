@@ -26,8 +26,8 @@ type BBS interface {
 	// 		error in case of errors or nil if signature proof verification was successful
 	VerifyProof(messages [][]byte, proof, nonce, pubKey []byte) error
 
-	// DeriveProof will create a BBS+ proof for a list of revealed messages using BBS signature (can be build
-	// using Sign()) and a public key.
+	// DeriveProof will create a BBS+ signature proof for a list of revealed messages using BBS signature
+	// (can be build using Sign()) and a public key.
 	// returns:
 	// 		signature proof in []byte
 	//		error in case of errors
