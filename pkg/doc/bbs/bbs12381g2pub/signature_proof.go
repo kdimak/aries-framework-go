@@ -125,15 +125,24 @@ func (sp *PoKOfSignatureProof) ToBytes() []byte {
 
 	g1 := bls12381.NewG1()
 
-	bytes = append(bytes, g1.ToCompressed(sp.aPrime)...)
-	bytes = append(bytes, g1.ToCompressed(sp.aBar)...)
-	bytes = append(bytes, g1.ToCompressed(sp.d)...)
+	aPrimeBytes := g1.ToCompressed(sp.aPrime)
+	fmt.Printf("aPrimeBytes=%v\n", aPrimeBytes)
+	bytes = append(bytes, aPrimeBytes...)
+
+	aBarBytes := g1.ToCompressed(sp.aBar)
+	fmt.Printf("aBarBytes=%v\n", aBarBytes)
+	bytes = append(bytes, aBarBytes...)
+
+	dBytes := g1.ToCompressed(sp.d)
+	fmt.Printf("dBytes=%v\n", dBytes)
+	bytes = append(bytes, dBytes...)
 
 	proof1Bytes := sp.proofVC1.ToBytes()
 	lenBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(lenBytes, uint32(len(proof1Bytes)))
 	fmt.Printf("proof1BytesLen=%d\n", len(proof1Bytes))
 	fmt.Printf("proof1Bytes=%v\n", proof1Bytes)
+	//proof1Bytes = []byte{162, 22, 96, 35, 159, 112, 119, 125, 176, 143, 145, 194, 225, 230, 120, 206, 12, 147, 14, 149, 233, 5, 24, 106, 141, 86, 153, 235, 52, 193, 241, 88, 147, 147, 98, 158, 78, 216, 166, 51, 222, 151, 161, 105, 106, 254, 96, 213, 0, 0, 0, 2, 8, 28, 90, 47, 106, 137, 195, 45, 221, 235, 200, 20, 173, 31, 242, 124, 124, 16, 2, 249, 141, 14, 136, 47, 147, 48, 56, 242, 209, 156, 125, 113, 70, 185, 167, 24, 214, 10, 120, 78, 69, 42, 164, 90, 138, 190, 207, 64, 88, 241, 183, 112, 242, 197, 100, 72, 81, 82, 65, 22, 131, 177, 88, 212}
 	bytes = append(bytes, lenBytes...)
 	bytes = append(bytes, proof1Bytes...)
 
@@ -189,14 +198,18 @@ func (pg1 *ProofG1) ToBytes() []byte {
 
 	g1 := bls12381.NewG1()
 
-	bytes = append(bytes, g1.ToCompressed(pg1.commitment)...)
+	commitmentBytes := g1.ToCompressed(pg1.commitment)
+	fmt.Printf("commitmentBytes=%v\n", commitmentBytes)
+	bytes = append(bytes, commitmentBytes...)
 
 	lenBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(lenBytes, uint32(len(pg1.responses)))
 	bytes = append(bytes, lenBytes...)
 
 	for i := range pg1.responses {
-		bytes = append(bytes, frToRepr(pg1.responses[i]).ToBytes()...)
+		responseBytes := frToRepr(pg1.responses[i]).ToBytes()
+		fmt.Printf("response[%d]=%v\n", i, responseBytes)
+		bytes = append(bytes, responseBytes...)
 	}
 
 	return bytes

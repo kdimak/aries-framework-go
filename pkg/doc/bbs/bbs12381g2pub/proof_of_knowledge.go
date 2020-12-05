@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bbs12381g2pub
 
 import (
+	"fmt"
 	"math/bits"
 
 	bls12381 "github.com/kilic/bls12-381"
@@ -26,87 +27,87 @@ type PoKOfSignature struct {
 	revealedMessages map[int]*SignatureMessage
 }
 
-func NewPoKSignature(signature *Signature, messages []*SignatureMessage, revealedIndexes []int, pubKey *PublicKeyWithGenerators) (*PoKOfSignature, error) {
-	pubKey.h0 = &bls12381.PointG1{
-		{
-			16128570759307831335,
-			11435327652252418089,
-			17181179580529813643,
-			7651671045714389869,
-			6091123425769061141,
-			238155152735112657,
-		},
-		{
-			8852548118187184029,
-			1669204339727993791,
-			1459831431779159897,
-			17438573210797757878,
-			2659106277050677739,
-			22791677536231356,
-		},
-		{
-			15511072250668529287,
-			11066566408031541066,
-			16628984762189337385,
-			10793151835107043567,
-			7193317304276292018,
-			1870981874531525183,
-		},
-	}
+func NewPoKOfSignature(signature *Signature, messages []*SignatureMessage, revealedIndexes []int, pubKey *PublicKeyWithGenerators) (*PoKOfSignature, error) {
+	/*	pubKey.h0 = &bls12381.PointG1{
+			{
+				16128570759307831335,
+				11435327652252418089,
+				17181179580529813643,
+				7651671045714389869,
+				6091123425769061141,
+				238155152735112657,
+			},
+			{
+				8852548118187184029,
+				1669204339727993791,
+				1459831431779159897,
+				17438573210797757878,
+				2659106277050677739,
+				22791677536231356,
+			},
+			{
+				15511072250668529287,
+				11066566408031541066,
+				16628984762189337385,
+				10793151835107043567,
+				7193317304276292018,
+				1870981874531525183,
+			},
+		}
 
-	pubKey.h[0] = &bls12381.PointG1{
-		{
-			8742793826039984843,
-			7671088375886345569,
-			12031437338403143252,
-			15681550841904380983,
-			8078050519651180587,
-			1477819534017682260,
-		},
-		{
-			16492903571450539607,
-			11238088025244284237,
-			8359923790576021179,
-			5236863890635860287,
-			15436933557653648064,
-			1587495073999389284,
-		},
-		{
-			9536761074730595784,
-			10100421748366638947,
-			18163889707563091283,
-			2585167595164836700,
-			12808825964580439721,
-			1104008306170660463,
-		},
-	}
+		pubKey.h[0] = &bls12381.PointG1{
+			{
+				8742793826039984843,
+				7671088375886345569,
+				12031437338403143252,
+				15681550841904380983,
+				8078050519651180587,
+				1477819534017682260,
+			},
+			{
+				16492903571450539607,
+				11238088025244284237,
+				8359923790576021179,
+				5236863890635860287,
+				15436933557653648064,
+				1587495073999389284,
+			},
+			{
+				9536761074730595784,
+				10100421748366638947,
+				18163889707563091283,
+				2585167595164836700,
+				12808825964580439721,
+				1104008306170660463,
+			},
+		}
 
-	pubKey.h[1] = &bls12381.PointG1{
-		{
-			12584049717995663936,
-			16551131396300211555,
-			6659348494088217806,
-			12324388463641772334,
-			18033749704824223396,
-			437782960110583554,
-		},
-		{
-			17562697509587597569,
-			8619108056400817585,
-			4208337652558726328,
-			13140242927792930794,
-			15253055332162743174,
-			265020599723385596,
-		},
-		{
-			7252545001518928562,
-			360140954290854271,
-			14648341908088101001,
-			12124461506902346247,
-			8141146677500709250,
-			1050445793559046538,
-		},
-	}
+		pubKey.h[1] = &bls12381.PointG1{
+			{
+				12584049717995663936,
+				16551131396300211555,
+				6659348494088217806,
+				12324388463641772334,
+				18033749704824223396,
+				437782960110583554,
+			},
+			{
+				17562697509587597569,
+				8619108056400817585,
+				4208337652558726328,
+				13140242927792930794,
+				15253055332162743174,
+				265020599723385596,
+			},
+			{
+				7252545001518928562,
+				360140954290854271,
+				14648341908088101001,
+				12124461506902346247,
+				8141146677500709250,
+				1050445793559046538,
+			},
+		}*/
 
 	messagesCount := len(messages)
 
@@ -130,40 +131,40 @@ func NewPoKSignature(signature *Signature, messages []*SignatureMessage, reveale
 		5943233445765009386,
 	}
 
-	//b := computeB(signature.S, messages, pubKey)
-	b := &bls12381.PointG1{
-		{
-			4919353811942452779,
-			1594664523720136443,
-			4781372093526700820,
-			10309036171877305459,
-			13435298166044616736,
-			1854421087553655826,
-		},
-		{
-			1651584333997501102,
-			6243631230536078986,
-			11980491289236877338,
-			3889014966522092010,
-			17676356858101210200,
-			171218091019157395,
-		},
-		{
-			10526952305092756305,
-			8120995529889985883,
-			7503702279808081663,
-			14916900478554174680,
-			17821696677585582986,
-			1734336543935554680,
-		},
-	}
+	b := computeB(signature.S, messages, pubKey)
+	//b := &bls12381.PointG1{
+	//	{
+	//		4919353811942452779,
+	//		1594664523720136443,
+	//		4781372093526700820,
+	//		10309036171877305459,
+	//		13435298166044616736,
+	//		1854421087553655826,
+	//	},
+	//	{
+	//		1651584333997501102,
+	//		6243631230536078986,
+	//		11980491289236877338,
+	//		3889014966522092010,
+	//		17676356858101210200,
+	//		171218091019157395,
+	//	},
+	//	{
+	//		10526952305092756305,
+	//		8120995529889985883,
+	//		7503702279808081663,
+	//		14916900478554174680,
+	//		17821696677585582986,
+	//		1734336543935554680,
+	//	},
+	//}
 
 	g1 := bls12381.NewG1()
 
 	aPrime := g1.New()
-	//g1.MulScalar(aPrime, signature.A, frToRepr(r1))
+	g1.MulScalar(aPrime, signature.A, frToRepr(r1))
 	//MulScalar(aPrime, signature.A, frToRepr(r1))
-	MulScalar(aPrime, signature.A, r1)
+	//MulScalar(aPrime, signature.A, frToRepr(r1))
 
 	aBarDenom := g1.New()
 	g1.MulScalar(aBarDenom, aPrime, frToRepr(signature.E))
@@ -179,13 +180,41 @@ func NewPoKSignature(signature *Signature, messages []*SignatureMessage, reveale
 	cb.add(b, r1)
 	cb.add(pubKey.h0, r2D)
 
-	d := cb.build()
+	d := cb.build() // todo d!
+	/*	d = &bls12381.PointG1{
+		{
+			11329041160047766804,
+			14829474186258832103,
+			7227898304588376503,
+			4194160170757034837,
+			16426739371141946610,
+			826939733763277989,
+		},
+		{
+			16951474407719173414,
+			6376585577275530124,
+			12185911854762699975,
+			5705324567921146819,
+			570174666034630117,
+			170448030030821320,
+		},
+		{
+			8369766850028102530,
+			18429646314652598620,
+			6593225912444047026,
+			8974613528098619467,
+			3947113440188848756,
+			1015062580628640013,
+		},
+	}*/
+	//dAffine := g1.New().Set(d)
+	//g1.Affine(dAffine)
 
 	r3 := bls12381.NewFr()
 	r3.Inverse(r1)
 
 	sPrime := bls12381.NewFr()
-	sPrime.Mul(r2, r3)
+	sPrime.RedMul(r2, r3)
 	sPrime.Neg(sPrime)
 	sPrime.Add(sPrime, signature.S)
 
@@ -199,12 +228,38 @@ func NewPoKSignature(signature *Signature, messages []*SignatureMessage, reveale
 	secrets1[1] = r2
 
 	pokVC1 := committing1.finish()
+	/*	pokVC1.commitment = &bls12381.PointG1{
+		{
+			3734058479350625333,
+			9978996166412034618,
+			11772986047153835249,
+			13451970846802567306,
+			14047708958769355529,
+			378788744374361569,
+		},
+		{
+			12634618621190366289,
+			12282151284507742208,
+			16755179073830200710,
+			8698922424414340193,
+			7172720397712984873,
+			1674839375548781040,
+		},
+		{
+			18196561215544973602,
+			2358624735929929413,
+			9832735752356611659,
+			3135360501469647193,
+			13345763290512590597,
+			654068496178333297,
+		},
+	}*/
 
 	committing2 := newProverCommittingG1()
 	secrets2 := make([]*bls12381.Fr, 0, 2+messagesCount)
 	committing2.commit(d)
 	r3D := bls12381.NewFr()
-	r3.Neg(r3D)
+	r3D.Neg(r3)
 	secrets2 = append(secrets2, r3D)
 	committing2.commit(pubKey.h0)
 	secrets2 = append(secrets2, sPrime)
@@ -217,7 +272,11 @@ func NewPoKSignature(signature *Signature, messages []*SignatureMessage, reveale
 	for i := 0; i < messagesCount; i++ {
 		if _, ok := revealedMessages[i]; !ok {
 			committing2.commit(pubKey.h[i])
-			hiddenFRCopy := bls12381.NewFr().Set(messages[i].FR)
+
+			sourceFR := messages[i].FR
+			hiddenFRCopy := bls12381.NewFr()
+			hiddenFRCopy.Set(sourceFR)
+
 			secrets2 = append(secrets2, hiddenFRCopy)
 		}
 	}
@@ -277,9 +336,10 @@ func (g *proverCommittedG1) marshal() []byte {
 func (g *proverCommittedG1) generateProof(challenge *bls12381.Fr, secrets []*bls12381.Fr) *ProofG1 {
 	responses := make([]*bls12381.Fr, len(g.bases))
 
+	// todo iterate over blindingFactors (for better readability)
 	for i := range g.bases {
 		c := bls12381.NewFr()
-		c.Mul(challenge, secrets[i])
+		c.RedMul(challenge, secrets[i])
 
 		s := bls12381.NewFr()
 		s.Sub(g.blindingFactors[i], c)
@@ -306,7 +366,14 @@ func newProverCommittingG1() *proverCommittingG1 {
 
 func (pc *proverCommittingG1) commit(base *bls12381.PointG1) {
 	pc.bases = append(pc.bases, base)
-	pc.blindingFactors = append(pc.blindingFactors, createRandSignatureFr())
+	//r := createRandSignatureFr()
+	r := &bls12381.Fr{
+		10053387086195297902,
+		15325863443853508476,
+		14992998309415471477,
+		5943233445765009386,
+	}
+	pc.blindingFactors = append(pc.blindingFactors, r)
 }
 
 func (pc *proverCommittingG1) finish() *proverCommittedG1 {
@@ -319,6 +386,7 @@ func (pc *proverCommittingG1) finish() *proverCommittedG1 {
 	}
 }
 
+// todo remove this?
 func getProofMessages(messages []*SignatureMessage, revealedIndexes []int) []ProofMessage {
 	proofMessages := make([]ProofMessage, len(messages))
 	for i := range messages {
@@ -335,49 +403,54 @@ func getProofMessages(messages []*SignatureMessage, revealedIndexes []int) []Pro
 	return proofMessages
 }
 
-func MulScalar(c, p *bls12381.PointG1, e *bls12381.Fr) *bls12381.PointG1 {
-	g := bls12381.NewG1()
-
-	n := &bls12381.PointG1{}
-	n.Set(p)
-
-	res := g.Zero()
-	foundOne := false
-
-	for i := 0; i < 255; i++ {
-		o := e.Bit(i)
-
-		if foundOne {
-			g.Double(res, res)
-		} else {
-			foundOne = o
-		}
-
-		if o {
-			g.Add(res, res, n)
-		}
-	}
-
-	return c.Set(res)
-}
-
 //func MulScalar(c, p *bls12381.PointG1, e *bls12381.Fr) *bls12381.PointG1 {
-//	const frBitSize = 255
-//	q, n := &bls12381.PointG1{}, &bls12381.PointG1{}
-//	n.Set(p)
-//
 //	g := bls12381.NewG1()
 //
-//	for i := 0; i < FrBitLen(e); i++ {
-//		o := e.Bit(FrBitLen(e) - i - 1)
-//		g.Double(n, n)
+//	n := &bls12381.PointG1{}
+//	n.Set(p)
+//
+//	res := g.Zero()
+//	foundOne := false
+//
+//	for i := 0; i < 255; i++ {
+//		o := e.Bit(i)
+//
+//		if foundOne {
+//			g.Double(res, res)
+//		} else {
+//			foundOne = o
+//		}
+//
 //		if o {
-//			g.Add(q, q, n)
+//			g.Add(res, res, n)
 //		}
 //	}
 //
-//	return c.Set(q)
+//	return c.Set(res)
 //}
+
+func MulScalar(c, p *bls12381.PointG1, e *bls12381.Fr) *bls12381.PointG1 {
+	g1 := bls12381.NewG1()
+
+	q := g1.Zero()
+
+	bitLen := FrBitLen(e)
+	fmt.Printf("bitLen = %d\n", bitLen)
+
+	for i := 0; i < bitLen; i++ {
+		o := e.Bit(bitLen - i - 1)
+		g1.Double(q, q)
+		if o {
+			g1.Add(q, q, p)
+			fmt.Print("1")
+		} else {
+			fmt.Print("0")
+		}
+	}
+	fmt.Print("\n")
+
+	return c.Set(q)
+}
 
 // BitLen counts the number of bits the number is.
 func FrBitLen(fr *bls12381.Fr) int {

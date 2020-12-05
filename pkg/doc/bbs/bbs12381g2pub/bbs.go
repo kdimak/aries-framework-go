@@ -181,17 +181,18 @@ func (bbs *BBSG2Pub) DeriveProof(messages [][]byte, sigBytes, nonce, pubKeyBytes
 	}
 	fmt.Printf("signature = %v\n", signature)
 
-	pokSignature, err := NewPoKSignature(signature, messagesFr, revealedIndexes, publicKeyWithGenerators)
+	pokSignature, err := NewPoKOfSignature(signature, messagesFr, revealedIndexes, publicKeyWithGenerators)
 	if err != nil {
 		return nil, fmt.Errorf("init proof of knowledge signature: %w", err)
 	}
 
-	fmt.Printf("pokSignature = %v\n", pokSignature)
 	challengeBytes := pokSignature.Marshal()
 
 	proofNonce := ParseProofNonce(nonce)
 	proofNonceBytes := proofNonce.ToBytes()
+	fmt.Printf("proofNonceBytes=%v\n", proofNonceBytes)
 	challengeBytes = append(challengeBytes, proofNonceBytes...)
+	fmt.Printf("challengeBytes=%v\n", challengeBytes)
 
 	challengeHash := frFromOKM(challengeBytes)
 
@@ -239,7 +240,10 @@ func (bbs *BBSG2Pub) SignWithKey(messages [][]byte, privKey *PrivateKey) ([]byte
 
 	sig := bbs.g1.New()
 	b := computeB(s, messagesFr, pubKeyWithGenerators)
-	bbs.g1.MulScalar(sig, b, frToRepr(exp))
+
+	g1 := bls12381.NewG1()
+
+	g1.MulScalar(sig, b, frToRepr(exp))
 
 	signature := &Signature{
 		A: sig,
